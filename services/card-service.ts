@@ -1,8 +1,7 @@
+import { CreateCardInput, LoyaltyCard, UpdateCardInput } from '@/types/card';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LoyaltyCard, CreateCardInput, UpdateCardInput, SAMPLE_CARDS } from '@/types/card';
 
 const STORAGE_KEY = 'cardholdr_cards';
-const INITIALIZED_KEY = 'cardholdr_initialized';
 
 /**
  * CardService - Abstraction layer for card data management
@@ -10,17 +9,6 @@ const INITIALIZED_KEY = 'cardholdr_initialized';
  */
 class CardServiceImpl {
   private cache: LoyaltyCard[] | null = null;
-
-  /**
-   * Initialize with sample data on first run
-   */
-  async initialize(): Promise<void> {
-    const initialized = await AsyncStorage.getItem(INITIALIZED_KEY);
-    if (!initialized) {
-      await this.saveCards(SAMPLE_CARDS);
-      await AsyncStorage.setItem(INITIALIZED_KEY, 'true');
-    }
-  }
 
   /**
    * Get all cards, sorted by most recently updated
@@ -111,7 +99,6 @@ class CardServiceImpl {
    */
   async clearAllCards(): Promise<void> {
     await this.saveCards([]);
-    await AsyncStorage.removeItem(INITIALIZED_KEY);
   }
 
   /**

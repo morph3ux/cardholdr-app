@@ -19,11 +19,13 @@ import { ThemedText } from '@/components/themed-text';
 import { BarcodeDisplay } from '@/components/ui/barcode-display';
 import { Button } from '@/components/ui/button';
 import { useCard } from '@/hooks/use-cards';
+import { useLanguage } from '@/hooks/use-language';
 import { Colors, CardGradients, Spacing, BorderRadius, Shadows, type CardGradientKey } from '@/constants/theme';
 
 export default function CardDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { t } = useLanguage();
   const { width } = useWindowDimensions();
   const { card, isLoading, deleteCard } = useCard(id);
 
@@ -58,19 +60,23 @@ export default function CardDetailScreen() {
 
   const handleDelete = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert('Delete Card', `Are you sure you want to delete "${card?.name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteCard();
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          router.back();
+    Alert.alert(
+      t('cardDetail.deleteTitle'),
+      t('cardDetail.deleteMessage', { name: card?.name }),
+      [
+        { text: t('cardDetail.cancel'), style: 'cancel' },
+        {
+          text: t('cardDetail.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            await deleteCard();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            router.back();
+          },
         },
-      },
-    ]);
-  }, [card, deleteCard, router]);
+      ]
+    );
+  }, [card, deleteCard, router, t]);
 
   const handleBack = useCallback(() => {
     router.back();
@@ -82,7 +88,7 @@ export default function CardDetailScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <SafeAreaView style={styles.loadingContainer}>
           <ThemedText type="body" color="muted">
-            Loading...
+            {t('cardDetail.loading')}
           </ThemedText>
         </SafeAreaView>
       </View>
@@ -153,7 +159,7 @@ export default function CardDetailScreen() {
           {/* Card Number */}
           <Animated.View entering={FadeInDown.delay(400).springify()} style={styles.infoSection}>
             <ThemedText type="subhead" color="muted">
-              Card Number
+              {t('cardDetail.cardNumber')}
             </ThemedText>
             <ThemedText type="title3" style={styles.cardNumber}>
               {formatCardNumber(card.cardNumber)}
@@ -164,7 +170,7 @@ export default function CardDetailScreen() {
           {card.notes && (
             <Animated.View entering={FadeInDown.delay(500).springify()} style={styles.infoSection}>
               <ThemedText type="subhead" color="muted">
-                Notes
+                {t('cardDetail.notes')}
               </ThemedText>
               <ThemedText type="body">{card.notes}</ThemedText>
             </Animated.View>
@@ -173,7 +179,7 @@ export default function CardDetailScreen() {
           {/* Actions */}
           <Animated.View entering={FadeInDown.delay(600).springify()} style={styles.actions}>
             <Button
-              title="Edit Card"
+              title={t('cardDetail.editCard')}
               variant="secondary"
               onPress={handleEdit}
               leftIcon={<Ionicons name="pencil" size={18} color={Colors.foreground} />}
@@ -270,4 +276,3 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
 });
-

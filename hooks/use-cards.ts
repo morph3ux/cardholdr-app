@@ -11,7 +11,6 @@ export function useCards() {
     try {
       setIsLoading(true);
       setError(null);
-      await CardService.initialize();
       const loadedCards = await CardService.getCards();
       setCards(loadedCards);
     } catch (err) {

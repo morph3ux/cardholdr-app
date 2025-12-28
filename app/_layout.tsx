@@ -15,6 +15,7 @@ import {
 } from '@expo-google-fonts/outfit';
 
 import { Colors } from '@/constants/theme';
+import { LanguageProvider } from '@/hooks/use-language';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -59,45 +60,47 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={CardHoldrTheme}>
-      <Stack
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: Colors.charcoal,
-          },
-          headerTintColor: Colors.coral,
-          headerTitleStyle: {
-            fontFamily: 'Outfit_600SemiBold',
-          },
-          contentStyle: {
-            backgroundColor: Colors.charcoal,
-          },
-        }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="card/[id]"
-          options={{
-            presentation: 'card',
-            title: '',
-            headerTransparent: true,
-          }}
-        />
-        <Stack.Screen
-          name="add-card"
-          options={{
-            presentation: 'modal',
-            title: 'Add Card',
-          }}
-        />
-        <Stack.Screen
-          name="edit-card/[id]"
-          options={{
-            presentation: 'modal',
-            title: 'Edit Card',
-          }}
-        />
-      </Stack>
-      <StatusBar style="light" />
-    </ThemeProvider>
+    <LanguageProvider>
+      <ThemeProvider value={CardHoldrTheme}>
+        <Stack
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: Colors.charcoal,
+            },
+            headerTintColor: Colors.coral,
+            headerTitleStyle: {
+              fontFamily: 'Outfit_600SemiBold',
+            },
+            contentStyle: {
+              backgroundColor: Colors.charcoal,
+            },
+          }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="card/[id]"
+            options={{
+              presentation: 'card',
+              title: '',
+              headerTransparent: true,
+            }}
+          />
+          <Stack.Screen
+            name="add-card"
+            options={{
+              presentation: 'modal',
+              title: 'Add Card',
+            }}
+          />
+          <Stack.Screen
+            name="edit-card/[id]"
+            options={{
+              presentation: 'modal',
+              title: 'Edit Card',
+            }}
+          />
+        </Stack>
+        <StatusBar style="light" />
+      </ThemeProvider>
+    </LanguageProvider>
   );
 }

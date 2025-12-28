@@ -1,12 +1,15 @@
-import { StyleSheet, View, ScrollView, Pressable, Alert, Linking } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
-import { Colors, Spacing, BorderRadius, ComponentSize } from '@/constants/theme';
+import { BorderRadius, Colors, ComponentSize, Spacing } from '@/constants/theme';
 import { CardService } from '@/services/card-service';
+import { useLanguage } from '@/hooks/use-language';
+import { SupportedLocale } from '@/i18n';
 
 type SettingItemProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -60,19 +63,22 @@ function SettingItem({
 }
 
 export default function SettingsScreen() {
+  const { t, locale, setLocale, supportedLocales } = useLanguage();
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
+
   const handleResetData = () => {
     Alert.alert(
-      'Reset All Data',
-      'This will delete all your saved cards. This action cannot be undone.',
+      t('settings.resetTitle'),
+      t('settings.resetMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('cardDetail.cancel'), style: 'cancel' },
         {
-          text: 'Reset',
+          text: t('settings.reset'),
           style: 'destructive',
           onPress: async () => {
             await CardService.clearAllCards();
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert('Done', 'All data has been reset.');
+            Alert.alert(t('settings.done'), t('settings.resetSuccess'));
           },
         },
       ]
@@ -80,16 +86,24 @@ export default function SettingsScreen() {
   };
 
   const handlePrivacyPolicy = () => {
-    Linking.openURL('https://cardholdr.app/privacy');
+    Linking.openURL('https://www.cardholdr.com/privacy');
   };
 
   const handleTerms = () => {
-    Linking.openURL('https://cardholdr.app/terms');
+    Linking.openURL('https://www.cardholdr.com/terms');
   };
 
   const handleSupport = () => {
-    Linking.openURL('mailto:support@cardholdr.app');
+    Linking.openURL('mailto:support@cardholdr.com');
   };
+
+  const handleLanguageSelect = (code: SupportedLocale) => {
+    setLocale(code);
+    setLanguageModalVisible(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const currentLanguageName = supportedLocales.find((l) => l.code === locale)?.name ?? 'English';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -99,26 +113,33 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <ThemedText type="largeTitle">Settings</ThemedText>
+          <ThemedText type="largeTitle">{t('settings.title')}</ThemedText>
         </View>
 
         {/* General Section */}
         <View style={styles.section}>
           <ThemedText type="subhead" color="muted" style={styles.sectionTitle}>
-            GENERAL
+            {t('settings.general')}
           </ThemedText>
           <Card noPadding>
             <SettingItem
+              icon="language-outline"
+              title={t('settings.language')}
+              subtitle={currentLanguageName}
+              onPress={() => setLanguageModalVisible(true)}
+            />
+            <View style={styles.divider} />
+            <SettingItem
               icon="notifications-outline"
-              title="Notifications"
-              subtitle="Coming soon"
+              title={t('settings.notifications')}
+              subtitle={t('settings.comingSoon')}
               showChevron={false}
             />
             <View style={styles.divider} />
             <SettingItem
               icon="phone-portrait-outline"
-              title="Haptic Feedback"
-              subtitle="Enabled"
+              title={t('settings.hapticFeedback')}
+              subtitle={t('settings.enabled')}
               showChevron={false}
             />
           </Card>
@@ -127,26 +148,33 @@ export default function SettingsScreen() {
         {/* Data Section */}
         <View style={styles.section}>
           <ThemedText type="subhead" color="muted" style={styles.sectionTitle}>
-            DATA
+            {t('settings.data')}
           </ThemedText>
           <Card noPadding>
             <SettingItem
               icon="cloud-upload-outline"
-              title="Backup & Sync"
-              subtitle="Coming soon"
+              title={t('settings.backupSync')}
+              subtitle={t('settings.comingSoon')}
               showChevron={false}
             />
             <View style={styles.divider} />
             <SettingItem
               icon="download-outline"
-              title="Export Cards"
-              subtitle="Coming soon"
+              title={t('settings.exportCards')}
+              subtitle={t('settings.comingSoon')}
+              showChevron={false}
+            />
+            <View style={styles.divider} />
+            <SettingItem
+              icon="push-outline"
+              title={t('settings.importCards')}
+              subtitle={t('settings.comingSoon')}
               showChevron={false}
             />
             <View style={styles.divider} />
             <SettingItem
               icon="trash-outline"
-              title="Reset All Data"
+              title={t('settings.resetAllData')}
               onPress={handleResetData}
               destructive
               showChevron={false}
@@ -157,35 +185,67 @@ export default function SettingsScreen() {
         {/* About Section */}
         <View style={styles.section}>
           <ThemedText type="subhead" color="muted" style={styles.sectionTitle}>
-            ABOUT
+            {t('settings.about')}
           </ThemedText>
           <Card noPadding>
             <SettingItem
               icon="shield-checkmark-outline"
-              title="Privacy Policy"
+              title={t('settings.privacyPolicy')}
               onPress={handlePrivacyPolicy}
             />
             <View style={styles.divider} />
             <SettingItem
               icon="document-text-outline"
-              title="Terms of Service"
+              title={t('settings.termsOfService')}
               onPress={handleTerms}
             />
             <View style={styles.divider} />
-            <SettingItem icon="mail-outline" title="Contact Support" onPress={handleSupport} />
+            <SettingItem
+              icon="mail-outline"
+              title={t('settings.contactSupport')}
+              onPress={handleSupport}
+            />
           </Card>
         </View>
 
         {/* App Info */}
         <View style={styles.appInfo}>
           <ThemedText type="caption" color="muted">
-            CardHoldr v1.0.0
+            {t('settings.version')}
           </ThemedText>
           <ThemedText type="caption" color="muted">
-            Made with ♥ for your privacy
+            {t('settings.madeWith')}
           </ThemedText>
         </View>
       </ScrollView>
+
+      {/* Language Selection Modal */}
+      <Modal
+        visible={languageModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLanguageModalVisible(false)}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setLanguageModalVisible(false)}>
+          <View style={styles.modalContent}>
+            <ThemedText type="title3" style={styles.modalTitle}>
+              {t('settings.language')}
+            </ThemedText>
+            {supportedLocales.map((lang) => (
+              <Pressable
+                key={lang.code}
+                style={styles.languageOption}
+                onPress={() => handleLanguageSelect(lang.code)}>
+                <ThemedText type="body">{lang.name}</ThemedText>
+                {locale === lang.code && (
+                  <Ionicons name="checkmark" size={24} color={Colors.coral} />
+                )}
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -241,5 +301,29 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xl,
     gap: Spacing.xxs,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    width: '80%',
+    maxWidth: 320,
+  },
+  modalTitle: {
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  languageOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
 });
-

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,7 +7,6 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -17,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { useCards } from '@/hooks/use-cards';
+import { useLanguage } from '@/hooks/use-language';
 import { Colors, CardGradients, Spacing, BorderRadius, type CardGradientKey } from '@/constants/theme';
 import type { BarcodeType } from '@/types/card';
 
@@ -30,17 +30,22 @@ const BARCODE_TYPES: { value: BarcodeType; label: string }[] = [
 
 const COLOR_OPTIONS: CardGradientKey[] = [
   'coral',
+  'red',
   'blue',
   'purple',
   'green',
   'pink',
   'orange',
+  'yellow',
   'teal',
+  'cyan',
   'indigo',
+  'slate',
 ];
 
 export default function AddCardScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const params = useLocalSearchParams<{ cardNumber?: string; barcodeType?: string }>();
   const { addCard } = useCards();
 
@@ -49,6 +54,16 @@ export default function AddCardScreen() {
   const [barcodeType, setBarcodeType] = useState<BarcodeType>(
     (params.barcodeType as BarcodeType) || 'CODE128'
   );
+
+  // Update state when params change (e.g., coming back from scan)
+  useEffect(() => {
+    if (params.cardNumber) {
+      setCardNumber(params.cardNumber);
+    }
+    if (params.barcodeType) {
+      setBarcodeType(params.barcodeType as BarcodeType);
+    }
+  }, [params.cardNumber, params.barcodeType]);
   const [color, setColor] = useState<CardGradientKey>('coral');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,16 +73,16 @@ export default function AddCardScreen() {
     const newErrors: { name?: string; cardNumber?: string } = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Store name is required';
+      newErrors.name = t('cardForm.storeNameRequired');
     }
 
     if (!cardNumber.trim()) {
-      newErrors.cardNumber = 'Card number is required';
+      newErrors.cardNumber = t('cardForm.cardNumberRequired');
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [name, cardNumber]);
+  }, [name, cardNumber, t]);
 
   const handleSubmit = useCallback(async () => {
     if (!validate()) {
@@ -99,11 +114,19 @@ export default function AddCardScreen() {
     router.back();
   }, [router]);
 
+  const handleScan = useCallback(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'add-card.tsx:117',message:'handleScan called - scan button pressed',data:{cardNumber,name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/scan');
+  }, [router]);
+
   return (
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          title: 'Add Card',
+          title: t('cardForm.addTitle'),
           headerStyle: { backgroundColor: Colors.charcoal },
           headerTintColor: Colors.coral,
           headerTitleStyle: { fontFamily: 'Outfit_600SemiBold' },
@@ -114,7 +137,7 @@ export default function AddCardScreen() {
           ),
           headerRight: () => (
             <Button
-              title="Save"
+              title={t('cardForm.save')}
               size="small"
               onPress={handleSubmit}
               disabled={isSubmitting}
@@ -134,8 +157,8 @@ export default function AddCardScreen() {
           keyboardShouldPersistTaps="handled">
           {/* Store Name */}
           <Input
-            label="Store Name"
-            placeholder="e.g., Starbucks, Target, CVS"
+            label={t('cardForm.storeName')}
+            placeholder={t('cardForm.storeNamePlaceholder')}
             value={name}
             onChangeText={setName}
             error={errors.name}
@@ -145,20 +168,25 @@ export default function AddCardScreen() {
 
           {/* Card Number */}
           <Input
-            label="Card Number"
-            placeholder="Enter or scan the barcode number"
+            label={t('cardForm.cardNumber')}
+            placeholder={t('cardForm.cardNumberPlaceholder')}
             value={cardNumber}
             onChangeText={setCardNumber}
             error={errors.cardNumber}
             keyboardType="default"
             autoCapitalize="characters"
             containerStyle={styles.inputSpacing}
+            rightIcon={
+              <Pressable onPress={handleScan} hitSlop={8}>
+                <Ionicons name="scan" size={22} color={Colors.coral} />
+              </Pressable>
+            }
           />
 
           {/* Barcode Type */}
           <View style={styles.inputSpacing}>
             <ThemedText type="subhead" style={styles.label}>
-              Barcode Type
+              {t('cardForm.barcodeType')}
             </ThemedText>
             <View style={styles.barcodeTypes}>
               {BARCODE_TYPES.map((type) => (
@@ -188,7 +216,7 @@ export default function AddCardScreen() {
           {/* Color */}
           <View style={styles.inputSpacing}>
             <ThemedText type="subhead" style={styles.label}>
-              Card Color
+              {t('cardForm.cardColor')}
             </ThemedText>
             <View style={styles.colorPicker}>
               {COLOR_OPTIONS.map((colorKey) => (
@@ -213,8 +241,8 @@ export default function AddCardScreen() {
 
           {/* Notes */}
           <Input
-            label="Notes (Optional)"
-            placeholder="Any additional info about this card"
+            label={t('cardForm.notes')}
+            placeholder={t('cardForm.notesPlaceholder')}
             value={notes}
             onChangeText={setNotes}
             multiline
@@ -226,7 +254,7 @@ export default function AddCardScreen() {
           {/* Preview */}
           <View style={styles.previewSection}>
             <ThemedText type="subhead" style={styles.label}>
-              Preview
+              {t('cardForm.preview')}
             </ThemedText>
             <Card
               style={[
@@ -234,10 +262,10 @@ export default function AddCardScreen() {
                 { backgroundColor: CardGradients[color][0] },
               ]}>
               <ThemedText type="title3" style={styles.previewName}>
-                {name || 'Store Name'}
+                {name || t('cardForm.defaultStoreName')}
               </ThemedText>
               <ThemedText type="caption" style={styles.previewNumber}>
-                {cardNumber || '0000 0000 0000'}
+                {cardNumber || t('cardForm.defaultCardNumber')}
               </ThemedText>
             </Card>
           </View>
@@ -331,4 +359,3 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
 });
-

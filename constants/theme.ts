@@ -36,13 +36,17 @@ export const Colors = {
 // Gradient presets for loyalty cards
 export const CardGradients = {
   coral: ['#FF6B4A', '#E54D2E'],
+  red: ['#EF4444', '#DC2626'],
   blue: ['#3B82F6', '#1D4ED8'],
   purple: ['#8B5CF6', '#6D28D9'],
   green: ['#10B981', '#047857'],
   pink: ['#EC4899', '#BE185D'],
   orange: ['#F97316', '#C2410C'],
+  yellow: ['#EAB308', '#CA8A04'],
   teal: ['#14B8A6', '#0D9488'],
+  cyan: ['#06B6D4', '#0891B2'],
   indigo: ['#6366F1', '#4338CA'],
+  slate: ['#64748B', '#475569'],
 } as const;
 
 export type CardGradientKey = keyof typeof CardGradients;
