@@ -40,40 +40,6 @@ export default function ScanScreen() {
   // Stabilize permission state - only update state when permission is not null
   // This prevents infinite loops from intermittent null values
   useEffect(() => {
-    // #region agent log
-    fetch("http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "scan.tsx:27",
-        message: "Permission state changed",
-        data: {
-          permission: permission
-            ? {
-                granted: permission.granted,
-                canAskAgain: permission.canAskAgain,
-              }
-            : null,
-          stablePermissionState: stablePermissionState
-            ? {
-                granted: stablePermissionState.granted,
-                canAskAgain: stablePermissionState.canAskAgain,
-              }
-            : null,
-          globalStablePermission: globalStablePermission
-            ? {
-                granted: globalStablePermission.granted,
-                canAskAgain: globalStablePermission.canAskAgain,
-              }
-            : null,
-        },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "post-fix-v4",
-        hypothesisId: "A",
-      }),
-    }).catch(() => {});
-    // #endregion
     // Only update stable permission state when we have a non-null value
     // Update both local state and module-level variable to persist across remounts
     // This prevents infinite loops from intermittent null returns while allowing real permission updates
@@ -97,45 +63,12 @@ export default function ScanScreen() {
   const hasResetScannedRef = useRef(false);
   useEffect(() => {
     if (!hasResetScannedRef.current) {
-      // #region agent log
-      fetch(
-        "http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: "scan.tsx:33",
-            message: "Initial mount - resetting scanned",
-            data: { scanned },
-            timestamp: Date.now(),
-            sessionId: "debug-session",
-            runId: "post-fix-v3",
-            hypothesisId: "C",
-          }),
-        }
-      ).catch(() => {});
-      // #endregion
       setScanned(false);
       hasResetScannedRef.current = true;
     }
   }, [scanned]);
 
   const handleBarcodeScanned = (result: BarcodeScanningResult) => {
-    // #region agent log
-    fetch("http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "scan.tsx:31",
-        message: "handleBarcodeScanned called",
-        data: { scanned, resultData: result.data, params },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "run1",
-        hypothesisId: "D",
-      }),
-    }).catch(() => {});
-    // #endregion
     if (scanned) return;
 
     setScanned(true);
@@ -144,28 +77,6 @@ export default function ScanScreen() {
     // Navigate back with the scanned data
     // Small delay for visual feedback before navigating
     setTimeout(() => {
-      // #region agent log
-      fetch(
-        "http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: "scan.tsx:39",
-            message: "Navigating after scan",
-            data: {
-              returnTo: params.returnTo,
-              cardId: params.cardId,
-              resultData: result.data,
-            },
-            timestamp: Date.now(),
-            sessionId: "debug-session",
-            runId: "run1",
-            hypothesisId: "D",
-          }),
-        }
-      ).catch(() => {});
-      // #endregion
       if (params.returnTo === "edit-card" && params.cardId) {
         router.navigate({
           pathname: "/edit-card/[id]",
@@ -193,39 +104,8 @@ export default function ScanScreen() {
   };
 
   const handleBack = () => {
-    // #region agent log
-    fetch("http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "scan.tsx:66",
-        message: "handleBack called",
-        data: { params },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "run1",
-        hypothesisId: "D",
-      }),
-    }).catch(() => {});
-    // #endregion
     router.back();
   };
-
-  // #region agent log
-  fetch("http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      location: "scan.tsx:70",
-      message: "Render branch check - permission null",
-      data: { permissionIsNull: !stablePermission },
-      timestamp: Date.now(),
-      sessionId: "debug-session",
-      runId: "post-fix",
-      hypothesisId: "A",
-    }),
-  }).catch(() => {});
-  // #endregion
 
   if (!stablePermission) {
     return (
@@ -240,49 +120,8 @@ export default function ScanScreen() {
     );
   }
 
-  // #region agent log
-  fetch("http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      location: "scan.tsx:83",
-      message: "Render branch check - permission not granted",
-      data: { permissionGranted: stablePermission?.granted },
-      timestamp: Date.now(),
-      sessionId: "debug-session",
-      runId: "post-fix",
-      hypothesisId: "A",
-    }),
-  }).catch(() => {});
-  // #endregion
-
   if (!stablePermission.granted) {
     const wrappedRequestPermission = () => {
-      // #region agent log
-      fetch(
-        "http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: "scan.tsx:103",
-            message: "requestPermission called",
-            data: {
-              permissionBefore: stablePermission
-                ? {
-                    granted: stablePermission.granted,
-                    canAskAgain: stablePermission.canAskAgain,
-                  }
-                : null,
-            },
-            timestamp: Date.now(),
-            sessionId: "debug-session",
-            runId: "post-fix",
-            hypothesisId: "B",
-          }),
-        }
-      ).catch(() => {});
-      // #endregion
       requestPermission();
     };
     return (
@@ -316,22 +155,6 @@ export default function ScanScreen() {
       </View>
     );
   }
-
-  // #region agent log
-  fetch("http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      location: "scan.tsx:112",
-      message: "Rendering camera view",
-      data: { scanned, permissionGranted: stablePermission?.granted },
-      timestamp: Date.now(),
-      sessionId: "debug-session",
-      runId: "post-fix",
-      hypothesisId: "A",
-    }),
-  }).catch(() => {});
-  // #endregion
 
   return (
     <View style={styles.container}>
