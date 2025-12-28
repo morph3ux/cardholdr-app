@@ -115,9 +115,6 @@ export default function AddCardScreen() {
   }, [router]);
 
   const handleScan = useCallback(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'add-card.tsx:117',message:'handleScan called - scan button pressed',data:{cardNumber,name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/scan');
   }, [router]);

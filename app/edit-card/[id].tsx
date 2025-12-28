@@ -125,9 +125,6 @@ export default function EditCardScreen() {
   }, [router]);
 
   const handleScan = useCallback(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'edit-card/[id].tsx:127',message:'handleScan called - scan button pressed',data:{cardId:params.id,cardNumber,name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push({
       pathname: '/scan',
