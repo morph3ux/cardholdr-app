@@ -11,7 +11,7 @@ class CardServiceImpl {
   private cache: LoyaltyCard[] | null = null;
 
   /**
-   * Get all cards, sorted by most recently updated
+   * Get all cards, sorted by open count (most popular first), then by most recently updated
    */
   async getCards(): Promise<LoyaltyCard[]> {
     if (this.cache) {
@@ -21,7 +21,20 @@ class CardServiceImpl {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEY);
       const cards = data ? JSON.parse(data) : [];
-      this.cache = cards.sort((a: LoyaltyCard, b: LoyaltyCard) => b.updatedAt - a.updatedAt);
+      // Ensure all cards have openCount for backward compatibility
+      const normalizedCards = cards.map((card: LoyaltyCard) => ({
+        ...card,
+        openCount: card.openCount ?? 0,
+      }));
+      this.cache = normalizedCards.sort((a: LoyaltyCard, b: LoyaltyCard) => {
+        // Sort by openCount (descending), then by updatedAt (descending) as tiebreaker
+        const aOpenCount = a.openCount || 0;
+        const bOpenCount = b.openCount || 0;
+        if (aOpenCount !== bOpenCount) {
+          return bOpenCount - aOpenCount;
+        }
+        return b.updatedAt - a.updatedAt;
+      });
       return this.cache!;
     } catch (error) {
       console.error('Error loading cards:', error);
@@ -49,6 +62,7 @@ class CardServiceImpl {
       id: generateId(),
       createdAt: now,
       updatedAt: now,
+      openCount: 0,
     };
 
     const updatedCards = [newCard, ...cards];
@@ -102,12 +116,43 @@ class CardServiceImpl {
   }
 
   /**
+   * Increment the open count for a card
+   */
+  async incrementOpenCount(id: string): Promise<LoyaltyCard> {
+    const cards = await this.getCards();
+    const index = cards.findIndex((card) => card.id === id);
+
+    if (index === -1) {
+      throw new Error(`Card with id ${id} not found`);
+    }
+
+    const updatedCard: LoyaltyCard = {
+      ...cards[index],
+      openCount: (cards[index].openCount || 0) + 1,
+      updatedAt: Date.now(),
+    };
+
+    cards[index] = updatedCard;
+    await this.saveCards(cards);
+
+    return updatedCard;
+  }
+
+  /**
    * Internal: Save cards to storage and update cache
    */
   private async saveCards(cards: LoyaltyCard[]): Promise<void> {
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
-      this.cache = cards.sort((a, b) => b.updatedAt - a.updatedAt);
+      this.cache = cards.sort((a, b) => {
+        // Sort by openCount (descending), then by updatedAt (descending) as tiebreaker
+        const aOpenCount = a.openCount || 0;
+        const bOpenCount = b.openCount || 0;
+        if (aOpenCount !== bOpenCount) {
+          return bOpenCount - aOpenCount;
+        }
+        return b.updatedAt - a.updatedAt;
+      });
     } catch (error) {
       console.error('Error saving cards:', error);
       throw error;

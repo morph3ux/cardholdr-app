@@ -98,6 +98,13 @@ export default function RootLayout() {
               title: 'Edit Card',
             }}
           />
+          <Stack.Screen
+            name="scan"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
         </Stack>
         <StatusBar style="light" />
       </ThemeProvider>

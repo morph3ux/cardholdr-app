@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -25,9 +26,21 @@ import { Colors, CardGradients, Spacing, BorderRadius, Shadows, type CardGradien
 export default function CardDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const navigation = useNavigation();
   const { t } = useLanguage();
   const { width } = useWindowDimensions();
   const { card, isLoading, deleteCard } = useCard(id);
+
+  // Track card open when screen is mounted
+  useEffect(() => {
+    if (id) {
+      import('@/services/card-service').then(({ CardService }) => {
+        CardService.incrementOpenCount(id).catch((error) => {
+          console.error('Error incrementing open count:', error);
+        });
+      });
+    }
+  }, [id]);
 
   // Boost brightness when viewing barcode
   useEffect(() => {
@@ -71,7 +84,11 @@ export default function CardDetailScreen() {
           onPress: async () => {
             await deleteCard();
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            router.back();
+            if (navigation.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(tabs)');
+            }
           },
         },
       ]
@@ -79,8 +96,12 @@ export default function CardDetailScreen() {
   }, [card, deleteCard, router, t]);
 
   const handleBack = useCallback(() => {
-    router.back();
-  }, [router]);
+    if (navigation.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  }, [router, navigation]);
 
   if (isLoading || !card) {
     return (

@@ -19,7 +19,7 @@ function AddButton() {
   return (
     <Pressable style={styles.addButton} onPress={handlePress}>
       <View style={styles.addButtonInner}>
-        <Ionicons name="add" size={32} color={Colors.charcoal} />
+        <Ionicons name="add" size={24} color={Colors.charcoal} />
       </View>
     </Pressable>
   );
@@ -101,14 +101,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addButtonInner: {
-    width: 56,
-    height: 56,
+    width: 40,
+    height: 40,
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.coral,
-    borderWidth: 3,
-    borderColor: Colors.charcoal,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.lg,
   },
 });

@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import {
   BarcodeScanningResult,
   CameraView,
@@ -25,8 +26,20 @@ import { useLanguage } from "@/hooks/use-language";
 // This prevents infinite loops from permission oscillations causing remounts
 let globalStablePermission: ReturnType<typeof useCameraPermissions>[0] = null;
 
+// Module-level variable to store scanned data temporarily for passing back to previous screen
+let scannedData: { cardNumber: string; barcodeType: string } | null = null;
+
+export function getScannedData() {
+  return scannedData;
+}
+
+export function clearScannedData() {
+  scannedData = null;
+}
+
 export default function ScanScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { t } = useLanguage();
   const params = useLocalSearchParams<{ returnTo?: string; cardId?: string }>();
   const [permission, requestPermission] = useCameraPermissions();
@@ -74,26 +87,42 @@ export default function ScanScreen() {
     setScanned(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    // Navigate back with the scanned data
+    // Store scanned data temporarily (using the module-level variable directly)
+    scannedData = {
+      cardNumber: result.data,
+      barcodeType: mapBarcodeType(result.type),
+    };
+
+    // Navigate back - the previous screen will pick up the scanned data
     // Small delay for visual feedback before navigating
     setTimeout(() => {
-      if (params.returnTo === "edit-card" && params.cardId) {
-        router.navigate({
-          pathname: "/edit-card/[id]",
-          params: {
-            id: params.cardId,
-            cardNumber: result.data,
-            barcodeType: mapBarcodeType(result.type),
-          },
-        });
+      // #region agent log
+      fetch(
+        "http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location: "scan.tsx:96",
+            message: "Navigating back after scan using router.back()",
+            data: { returnTo: params.returnTo, cardId: params.cardId },
+            timestamp: Date.now(),
+            sessionId: "debug-session",
+            runId: "scan-singleton-fix-v2",
+            hypothesisId: "A",
+          }),
+        }
+      ).catch(() => {});
+      // #endregion
+      // Use router.back() to go back to the previous screen (add-card/edit-card)
+      // Since we navigate from add-card/edit-card to scan using router.push(),
+      // router.back() should properly return to the existing screen instance
+      // This ensures add-card/edit-card behaves as a singleton
+      if (navigation.canGoBack()) {
+        router.back();
       } else {
-        router.navigate({
-          pathname: "/add-card",
-          params: {
-            cardNumber: result.data,
-            barcodeType: mapBarcodeType(result.type),
-          },
-        });
+        // Fallback: navigate to add-card if we can't go back
+        router.replace("/add-card");
       }
     }, 300);
   };
@@ -104,7 +133,12 @@ export default function ScanScreen() {
   };
 
   const handleBack = () => {
-    router.back();
+    if (navigation.canGoBack()) {
+      router.back();
+    } else {
+      // Fallback: navigate to add-card if we can't go back
+      router.replace("/add-card");
+    }
   };
 
   if (!stablePermission) {

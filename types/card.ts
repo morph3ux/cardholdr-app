@@ -12,6 +12,7 @@ export interface LoyaltyCard {
   notes?: string;
   createdAt: number;
   updatedAt: number;
+  openCount?: number; // Number of times the card has been opened
 }
 
 export type CreateCardInput = Omit<LoyaltyCard, 'id' | 'createdAt' | 'updatedAt'>;

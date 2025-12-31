@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,7 +7,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
+import { useRouter, useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -19,6 +20,7 @@ import { useCards } from '@/hooks/use-cards';
 import { useLanguage } from '@/hooks/use-language';
 import { Colors, CardGradients, Spacing, BorderRadius, type CardGradientKey } from '@/constants/theme';
 import type { BarcodeType } from '@/types/card';
+import { getScannedData, clearScannedData } from '@/app/scan';
 
 const BARCODE_TYPES: { value: BarcodeType; label: string }[] = [
   { value: 'CODE128', label: 'Code 128' },
@@ -45,9 +47,28 @@ const COLOR_OPTIONS: CardGradientKey[] = [
 
 export default function AddCardScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { t } = useLanguage();
   const params = useLocalSearchParams<{ cardNumber?: string; barcodeType?: string }>();
   const { addCard } = useCards();
+
+  // #region agent log
+  useEffect(() => {
+    fetch("http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "add-card.tsx:47",
+        message: "AddCardScreen mounted/remounted",
+        data: {},
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        runId: "scan-singleton-fix",
+        hypothesisId: "B",
+      }),
+    }).catch(() => {});
+  }, []);
+  // #endregion
 
   const [name, setName] = useState('');
   const [cardNumber, setCardNumber] = useState(params.cardNumber || '');
@@ -64,6 +85,98 @@ export default function AddCardScreen() {
       setBarcodeType(params.barcodeType as BarcodeType);
     }
   }, [params.cardNumber, params.barcodeType]);
+
+  // Track if we've already processed scanned data to avoid duplicate processing
+  const hasProcessedScannedDataRef = useRef(false);
+
+  // Check for scanned data when screen regains focus (coming back from scan)
+  useFocusEffect(
+    useCallback(() => {
+      // #region agent log
+      fetch("http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          location: "add-card.tsx:70",
+          message: "useFocusEffect called - screen regained focus",
+          data: {},
+          timestamp: Date.now(),
+          sessionId: "debug-session",
+          runId: "scan-modal-remaining-v2",
+          hypothesisId: "C",
+        }),
+      }).catch(() => {});
+      // #endregion
+      // Reset the processed flag when screen gains focus (new scan session)
+      hasProcessedScannedDataRef.current = false;
+      
+      // Check for scanned data from scan screen's module-level variable
+      // This is a workaround since we can't pass params through router.back()
+      const data = getScannedData();
+      // #region agent log
+      fetch("http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          location: "add-card.tsx:78",
+          message: "Checking for scanned data",
+          data: { hasData: !!data },
+          timestamp: Date.now(),
+          sessionId: "debug-session",
+          runId: "scan-modal-remaining-v2",
+          hypothesisId: "C",
+        }),
+      }).catch(() => {});
+      // #endregion
+      if (data) {
+        setCardNumber(data.cardNumber);
+        setBarcodeType(data.barcodeType as BarcodeType);
+        // Clear the scanned data after using it
+        clearScannedData();
+        hasProcessedScannedDataRef.current = true;
+      }
+    }, [])
+  );
+
+  // Also check for scanned data periodically as a fallback (in case useFocusEffect doesn't fire)
+  useEffect(() => {
+    // Check immediately
+    const checkScannedData = () => {
+      const data = getScannedData();
+      if (data && !hasProcessedScannedDataRef.current) {
+        setCardNumber(data.cardNumber);
+        setBarcodeType(data.barcodeType as BarcodeType);
+        clearScannedData();
+        hasProcessedScannedDataRef.current = true;
+        return true; // Data was found and set
+      }
+      return false; // No data found or already processed
+    };
+
+    // Reset the flag when component mounts (new scan session)
+    hasProcessedScannedDataRef.current = false;
+
+    // Check immediately
+    if (checkScannedData()) {
+      return; // Data was set, no need to poll
+    }
+
+    // Poll every 100ms for up to 2 seconds to catch scanned data
+    const interval = setInterval(() => {
+      if (checkScannedData()) {
+        clearInterval(interval);
+      }
+    }, 100);
+
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+    }, 2000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, []);
   const [color, setColor] = useState<CardGradientKey>('coral');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -101,18 +214,41 @@ export default function AddCardScreen() {
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.back();
+      // #region agent log
+      fetch("http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          location: "add-card.tsx:257",
+          message: "Card saved, navigating back",
+          data: {},
+          timestamp: Date.now(),
+          sessionId: "debug-session",
+          runId: "scan-modal-remaining",
+          hypothesisId: "B",
+        }),
+      }).catch(() => {});
+      // #endregion
+      if (navigation.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (error) {
       console.error('Failed to add card:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsSubmitting(false);
     }
-  }, [name, cardNumber, barcodeType, color, notes, addCard, router, validate]);
+  }, [name, cardNumber, barcodeType, color, notes, addCard, router, navigation, validate]);
 
   const handleClose = useCallback(() => {
-    router.back();
-  }, [router]);
+    if (navigation.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  }, [router, navigation]);
 
   const handleScan = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

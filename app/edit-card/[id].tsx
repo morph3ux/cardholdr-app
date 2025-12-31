@@ -8,7 +8,8 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
+import { useRouter, useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -20,6 +21,7 @@ import { useCard } from '@/hooks/use-cards';
 import { useLanguage } from '@/hooks/use-language';
 import { Colors, CardGradients, Spacing, BorderRadius, type CardGradientKey } from '@/constants/theme';
 import type { BarcodeType } from '@/types/card';
+import { getScannedData, clearScannedData } from '@/app/scan';
 
 const BARCODE_TYPES: { value: BarcodeType; label: string }[] = [
   { value: 'CODE128', label: 'Code 128' },
@@ -46,6 +48,7 @@ const COLOR_OPTIONS: CardGradientKey[] = [
 
 export default function EditCardScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { t } = useLanguage();
   const params = useLocalSearchParams<{ id: string; cardNumber?: string; barcodeType?: string }>();
   const { card, isLoading, updateCard } = useCard(params.id);
@@ -79,6 +82,32 @@ export default function EditCardScreen() {
     }
   }, [params.cardNumber, params.barcodeType]);
 
+  // Check for scanned data when screen regains focus (coming back from scan)
+  useFocusEffect(
+    useCallback(() => {
+      // Check for scanned data from scan screen's module-level variable
+      // This is a workaround since we can't pass params through router.back()
+      const data = getScannedData();
+      if (data) {
+        setCardNumber(data.cardNumber);
+        setBarcodeType(data.barcodeType as BarcodeType);
+        // Clear the scanned data after using it
+        clearScannedData();
+      }
+    }, [])
+  );
+
+  // Also check for scanned data in useEffect as a fallback (in case useFocusEffect doesn't fire)
+  useEffect(() => {
+    const data = getScannedData();
+    if (data && !cardNumber) {
+      // Only set if cardNumber is empty to avoid overwriting existing data
+      setCardNumber(data.cardNumber);
+      setBarcodeType(data.barcodeType as BarcodeType);
+      clearScannedData();
+    }
+  }, [cardNumber]);
+
   const validate = useCallback(() => {
     const newErrors: { name?: string; cardNumber?: string } = {};
 
@@ -111,18 +140,26 @@ export default function EditCardScreen() {
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.back();
+      if (navigation.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (error) {
       console.error('Failed to update card:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsSubmitting(false);
     }
-  }, [name, cardNumber, barcodeType, color, notes, updateCard, router, validate]);
+  }, [name, cardNumber, barcodeType, color, notes, updateCard, router, navigation, validate]);
 
   const handleClose = useCallback(() => {
-    router.back();
-  }, [router]);
+    if (navigation.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  }, [router, navigation]);
 
   const handleScan = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
