@@ -8,7 +8,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +18,6 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { BarcodeDisplay } from '@/components/ui/barcode-display';
-import { Button } from '@/components/ui/button';
 import { useCard } from '@/hooks/use-cards';
 import { useLanguage } from '@/hooks/use-language';
 import { Colors, CardGradients, Spacing, BorderRadius, Shadows, type CardGradientKey } from '@/constants/theme';
@@ -29,7 +28,14 @@ export default function CardDetailScreen() {
   const navigation = useNavigation();
   const { t } = useLanguage();
   const { width } = useWindowDimensions();
-  const { card, isLoading, deleteCard } = useCard(id);
+  const { card, isLoading, deleteCard, refreshCard } = useCard(id);
+
+  // Refresh card data when screen regains focus (e.g., after editing)
+  useFocusEffect(
+    useCallback(() => {
+      refreshCard();
+    }, [refreshCard])
+  );
 
   // Track card open when screen is mounted
   useEffect(() => {
@@ -196,17 +202,6 @@ export default function CardDetailScreen() {
               <ThemedText type="body">{card.notes}</ThemedText>
             </Animated.View>
           )}
-
-          {/* Actions */}
-          <Animated.View entering={FadeInDown.delay(600).springify()} style={styles.actions}>
-            <Button
-              title={t('cardDetail.editCard')}
-              variant="secondary"
-              onPress={handleEdit}
-              leftIcon={<Ionicons name="pencil" size={18} color={Colors.foreground} />}
-              fullWidth
-            />
-          </Animated.View>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -292,8 +287,5 @@ const styles = StyleSheet.create({
   cardNumber: {
     letterSpacing: 2,
     marginTop: Spacing.xxs,
-  },
-  actions: {
-    marginTop: Spacing.md,
   },
 });

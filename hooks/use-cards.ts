@@ -62,22 +62,22 @@ export function useCard(id: string) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
-    async function loadCard() {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const loadedCard = await CardService.getCard(id);
-        setCard(loadedCard);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to load card'));
-      } finally {
-        setIsLoading(false);
-      }
+  const loadCard = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const loadedCard = await CardService.getCard(id);
+      setCard(loadedCard);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to load card'));
+    } finally {
+      setIsLoading(false);
     }
-
-    loadCard();
   }, [id]);
+
+  useEffect(() => {
+    loadCard();
+  }, [loadCard]);
 
   const updateCard = useCallback(
     async (input: UpdateCardInput) => {
@@ -93,12 +93,18 @@ export function useCard(id: string) {
     setCard(null);
   }, [id]);
 
+  const refreshCard = useCallback(async () => {
+    CardService.invalidateCache();
+    await loadCard();
+  }, [loadCard]);
+
   return {
     card,
     isLoading,
     error,
     updateCard,
     deleteCard,
+    refreshCard,
   };
 }
 

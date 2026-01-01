@@ -93,38 +93,26 @@ export default function ScanScreen() {
       barcodeType: mapBarcodeType(result.type),
     };
 
-    // Navigate back - the previous screen will pick up the scanned data
-    // Small delay for visual feedback before navigating
-    setTimeout(() => {
-      // #region agent log
-      fetch(
-        "http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: "scan.tsx:96",
-            message: "Navigating back after scan using router.back()",
-            data: { returnTo: params.returnTo, cardId: params.cardId },
-            timestamp: Date.now(),
-            sessionId: "debug-session",
-            runId: "scan-singleton-fix-v2",
-            hypothesisId: "A",
-          }),
+    // Only auto-navigate back for add-card, not for edit-card
+    // For edit-card, the user should manually close the scan screen
+    // The edit-card screen will pick up the scanned data when it regains focus
+    if (params.returnTo !== 'edit-card') {
+      // Navigate back - the previous screen will pick up the scanned data
+      // Small delay for visual feedback before navigating
+      setTimeout(() => {
+        // Use router.back() to go back to the previous screen (add-card)
+        // Since we navigate from add-card to scan using router.push(),
+        // router.back() should properly return to the existing screen instance
+        // This ensures add-card behaves as a singleton
+        if (navigation.canGoBack()) {
+          router.back();
+        } else {
+          // Fallback: navigate to add-card if we can't go back
+          router.replace("/add-card");
         }
-      ).catch(() => {});
-      // #endregion
-      // Use router.back() to go back to the previous screen (add-card/edit-card)
-      // Since we navigate from add-card/edit-card to scan using router.push(),
-      // router.back() should properly return to the existing screen instance
-      // This ensures add-card/edit-card behaves as a singleton
-      if (navigation.canGoBack()) {
-        router.back();
-      } else {
-        // Fallback: navigate to add-card if we can't go back
-        router.replace("/add-card");
-      }
-    }, 300);
+      }, 300);
+    }
+    // For edit-card, we don't navigate back - user must manually close
   };
 
   const toggleFlash = () => {
