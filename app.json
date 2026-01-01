@@ -13,7 +13,8 @@
       "bundleIdentifier": "com.adrianpeslar.cardholdrapp",
       "infoPlist": {
         "NSCameraUsageDescription": "CardHoldr needs camera access to scan barcodes on your loyalty cards."
-      }
+      },
+      "appleTeamId": "E3UJ72JUNA"
     },
     "android": {
       "adaptiveIcon": {
@@ -26,7 +27,8 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.adrianpeslar.cardholdrapp",
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.WRITE_SETTINGS"
       ]
     },
     "web": {

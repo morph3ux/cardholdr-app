@@ -30,6 +30,7 @@ export function Input({
   ...rest
 }: InputProps) {
   const [isFocused, setIsFocused] = useState(false);
+  const isMultiline = rest.multiline;
 
   const getBorderColor = () => {
     if (error) return Colors.destructive;
@@ -47,6 +48,7 @@ export function Input({
       <View
         style={[
           styles.inputContainer,
+          isMultiline && styles.inputContainerMultiline,
           { borderColor: getBorderColor() },
           isFocused && styles.inputFocused,
         ]}>
@@ -54,6 +56,7 @@ export function Input({
         <TextInput
           style={[
             styles.input,
+            isMultiline && styles.inputMultiline,
             leftIcon ? styles.inputWithLeftIcon : null,
             rightIcon ? styles.inputWithRightIcon : null,
             style,
@@ -107,6 +110,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: BorderRadius.md,
   },
+  inputContainerMultiline: {
+    alignItems: 'flex-start',
+    minHeight: ComponentSize.inputHeight,
+    paddingVertical: Spacing.xs,
+  },
   inputFocused: {
     borderWidth: 2,
   },
@@ -117,6 +125,12 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     fontSize: FontSize.body,
     color: Colors.foreground,
+  },
+  inputMultiline: {
+    height: 80,
+    minHeight: 80,
+    paddingVertical: Spacing.xs,
+    textAlignVertical: 'top',
   },
   inputWithLeftIcon: {
     paddingLeft: Spacing.xs,
