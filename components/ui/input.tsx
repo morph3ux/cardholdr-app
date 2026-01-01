@@ -70,7 +70,11 @@ export function Input({
           }}
           {...rest}
         />
-        {rightIcon && <View style={styles.iconRight}>{rightIcon}</View>}
+        {rightIcon && (
+          <View style={styles.iconRight} pointerEvents="auto">
+            {rightIcon}
+          </View>
+        )}
       </View>
       {error && (
         <ThemedText type="caption" color="destructive" style={styles.error}>
@@ -125,6 +129,10 @@ const styles = StyleSheet.create({
   },
   iconRight: {
     paddingRight: Spacing.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 44,
+    zIndex: 10,
   },
   error: {
     marginTop: Spacing.xxs,

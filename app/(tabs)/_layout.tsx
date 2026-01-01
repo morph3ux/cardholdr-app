@@ -5,11 +5,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { HapticTab } from '@/components/haptic-tab';
+import { ThemedText } from '@/components/themed-text';
 import { Colors, ComponentSize, BorderRadius, Spacing } from '@/constants/theme';
 import { useLanguage } from '@/hooks/use-language';
 
 function AddButton() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -18,9 +20,10 @@ function AddButton() {
 
   return (
     <Pressable style={styles.addButton} onPress={handlePress}>
-      <View style={styles.addButtonInner}>
-        <Ionicons name="add" size={24} color={Colors.charcoal} />
-      </View>
+      <Ionicons name="add-circle" size={ComponentSize.iconNav} color={Colors.coral} />
+      <ThemedText type="caption" style={styles.addButtonLabel}>
+        {t('tabs.add')}
+      </ThemedText>
     </Pressable>
   );
 }
@@ -57,7 +60,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="add"
         options={{
-          title: '',
+          title: t('tabs.add'),
           tabBarButton: () => <AddButton />,
         }}
         listeners={{
@@ -99,13 +102,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingTop: Spacing.xs,
   },
-  addButtonInner: {
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.coral,
-    alignItems: 'center',
-    justifyContent: 'center',
+  addButtonLabel: {
+    marginTop: Spacing.xxs,
+    color: Colors.coral,
   },
 });

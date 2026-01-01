@@ -2,7 +2,7 @@ export default {
   // Navigation
   tabs: {
     cards: 'Carduri',
-    scan: 'Scanare',
+    add: 'Adaugă Card',
     settings: 'Setări',
   },
 

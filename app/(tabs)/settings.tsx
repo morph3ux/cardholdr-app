@@ -11,6 +11,11 @@ import { CardService } from '@/services/card-service';
 import { useLanguage } from '@/hooks/use-language';
 import { SupportedLocale } from '@/i18n';
 
+// Feature flags
+const FEATURES = {
+  SHOW_NOTIFICATIONS_SETTING: false, // Set to true to enable notifications settings
+} as const;
+
 type SettingItemProps = {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
@@ -128,13 +133,17 @@ export default function SettingsScreen() {
               subtitle={currentLanguageName}
               onPress={() => setLanguageModalVisible(true)}
             />
-            <View style={styles.divider} />
-            <SettingItem
-              icon="notifications-outline"
-              title={t('settings.notifications')}
-              subtitle={t('settings.comingSoon')}
-              showChevron={false}
-            />
+            {FEATURES.SHOW_NOTIFICATIONS_SETTING && (
+              <>
+                <View style={styles.divider} />
+                <SettingItem
+                  icon="notifications-outline"
+                  title={t('settings.notifications')}
+                  subtitle={t('settings.comingSoon')}
+                  showChevron={false}
+                />
+              </>
+            )}
             <View style={styles.divider} />
             <SettingItem
               icon="phone-portrait-outline"

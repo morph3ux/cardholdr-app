@@ -2,7 +2,7 @@ export default {
   // Navigation
   tabs: {
     cards: 'Cards',
-    scan: 'Scan',
+    add: 'Add Card',
     settings: 'Settings',
   },
 

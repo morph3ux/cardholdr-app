@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,11 +6,19 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
-import { useRouter, useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import {
+  BarcodeScanningResult,
+  CameraView,
+  useCameraPermissions,
+} from 'expo-camera';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
@@ -18,9 +26,15 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { useCards } from '@/hooks/use-cards';
 import { useLanguage } from '@/hooks/use-language';
-import { Colors, CardGradients, Spacing, BorderRadius, type CardGradientKey } from '@/constants/theme';
+import {
+  Colors,
+  CardGradients,
+  Spacing,
+  BorderRadius,
+  ComponentSize,
+  type CardGradientKey,
+} from '@/constants/theme';
 import type { BarcodeType } from '@/types/card';
-import { getScannedData, clearScannedData } from '@/app/scan';
 
 const BARCODE_TYPES: { value: BarcodeType; label: string }[] = [
   { value: 'CODE128', label: 'Code 128' },
@@ -45,6 +59,19 @@ const COLOR_OPTIONS: CardGradientKey[] = [
   'slate',
 ];
 
+// Map expo-camera barcode types to our types
+function mapBarcodeType(type: string): BarcodeType {
+  const typeMap: Record<string, BarcodeType> = {
+    qr: 'QR',
+    ean13: 'EAN13',
+    code128: 'CODE128',
+    code39: 'CODE39',
+    upc_a: 'UPC',
+    upc_e: 'UPC',
+  };
+  return typeMap[type] || 'CODE128';
+}
+
 export default function AddCardScreen() {
   const router = useRouter();
   const navigation = useNavigation();
@@ -52,31 +79,24 @@ export default function AddCardScreen() {
   const params = useLocalSearchParams<{ cardNumber?: string; barcodeType?: string }>();
   const { addCard } = useCards();
 
-  // #region agent log
-  useEffect(() => {
-    fetch("http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "add-card.tsx:47",
-        message: "AddCardScreen mounted/remounted",
-        data: {},
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "scan-singleton-fix",
-        hypothesisId: "B",
-      }),
-    }).catch(() => {});
-  }, []);
-  // #endregion
+  // Scanner state
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanned, setScanned] = useState(false);
+  const [flashOn, setFlashOn] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
 
+  // Form state
   const [name, setName] = useState('');
   const [cardNumber, setCardNumber] = useState(params.cardNumber || '');
   const [barcodeType, setBarcodeType] = useState<BarcodeType>(
     (params.barcodeType as BarcodeType) || 'CODE128'
   );
+  const [color, setColor] = useState<CardGradientKey>('coral');
+  const [notes, setNotes] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string; cardNumber?: string }>({});
 
-  // Update state when params change (e.g., coming back from scan)
+  // Update state when params change
   useEffect(() => {
     if (params.cardNumber) {
       setCardNumber(params.cardNumber);
@@ -86,101 +106,12 @@ export default function AddCardScreen() {
     }
   }, [params.cardNumber, params.barcodeType]);
 
-  // Track if we've already processed scanned data to avoid duplicate processing
-  const hasProcessedScannedDataRef = useRef(false);
-
-  // Check for scanned data when screen regains focus (coming back from scan)
-  useFocusEffect(
-    useCallback(() => {
-      // #region agent log
-      fetch("http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location: "add-card.tsx:70",
-          message: "useFocusEffect called - screen regained focus",
-          data: {},
-          timestamp: Date.now(),
-          sessionId: "debug-session",
-          runId: "scan-modal-remaining-v2",
-          hypothesisId: "C",
-        }),
-      }).catch(() => {});
-      // #endregion
-      // Reset the processed flag when screen gains focus (new scan session)
-      hasProcessedScannedDataRef.current = false;
-      
-      // Check for scanned data from scan screen's module-level variable
-      // This is a workaround since we can't pass params through router.back()
-      const data = getScannedData();
-      // #region agent log
-      fetch("http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location: "add-card.tsx:78",
-          message: "Checking for scanned data",
-          data: { hasData: !!data },
-          timestamp: Date.now(),
-          sessionId: "debug-session",
-          runId: "scan-modal-remaining-v2",
-          hypothesisId: "C",
-        }),
-      }).catch(() => {});
-      // #endregion
-      if (data) {
-        setCardNumber(data.cardNumber);
-        setBarcodeType(data.barcodeType as BarcodeType);
-        // Clear the scanned data after using it
-        clearScannedData();
-        hasProcessedScannedDataRef.current = true;
-      }
-    }, [])
-  );
-
-  // Also check for scanned data periodically as a fallback (in case useFocusEffect doesn't fire)
+  // Reset scanned state when scanner is opened
   useEffect(() => {
-    // Check immediately
-    const checkScannedData = () => {
-      const data = getScannedData();
-      if (data && !hasProcessedScannedDataRef.current) {
-        setCardNumber(data.cardNumber);
-        setBarcodeType(data.barcodeType as BarcodeType);
-        clearScannedData();
-        hasProcessedScannedDataRef.current = true;
-        return true; // Data was found and set
-      }
-      return false; // No data found or already processed
-    };
-
-    // Reset the flag when component mounts (new scan session)
-    hasProcessedScannedDataRef.current = false;
-
-    // Check immediately
-    if (checkScannedData()) {
-      return; // Data was set, no need to poll
+    if (showScanner) {
+      setScanned(false);
     }
-
-    // Poll every 100ms for up to 2 seconds to catch scanned data
-    const interval = setInterval(() => {
-      if (checkScannedData()) {
-        clearInterval(interval);
-      }
-    }, 100);
-
-    const timeout = setTimeout(() => {
-      clearInterval(interval);
-    }, 2000);
-
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timeout);
-    };
-  }, []);
-  const [color, setColor] = useState<CardGradientKey>('coral');
-  const [notes, setNotes] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<{ name?: string; cardNumber?: string }>({});
+  }, [showScanner]);
 
   const validate = useCallback(() => {
     const newErrors: { name?: string; cardNumber?: string } = {};
@@ -214,21 +145,6 @@ export default function AddCardScreen() {
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // #region agent log
-      fetch("http://127.0.0.1:7243/ingest/91384ac6-32cf-4c09-a9ee-978da615e911", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location: "add-card.tsx:257",
-          message: "Card saved, navigating back",
-          data: {},
-          timestamp: Date.now(),
-          sessionId: "debug-session",
-          runId: "scan-modal-remaining",
-          hypothesisId: "B",
-        }),
-      }).catch(() => {});
-      // #endregion
       if (navigation.canGoBack()) {
         router.back();
       } else {
@@ -252,32 +168,184 @@ export default function AddCardScreen() {
 
   const handleScan = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/scan');
-  }, [router]);
+    setShowScanner(true);
+  }, []);
 
+  const handleBarcodeScanned = useCallback((result: BarcodeScanningResult) => {
+    if (scanned) return;
+
+    setScanned(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Populate form fields with scanned data
+    setCardNumber(result.data);
+    setBarcodeType(mapBarcodeType(result.type));
+
+    // Close scanner after a brief delay for visual feedback
+    setTimeout(() => {
+      setShowScanner(false);
+      setScanned(false);
+    }, 300);
+  }, [scanned]);
+
+  const handleCloseScanner = useCallback(() => {
+    setShowScanner(false);
+    setScanned(false);
+  }, []);
+
+  const toggleFlash = useCallback(() => {
+    setFlashOn((prev) => !prev);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  // Stabilize Stack.Screen options to prevent remounts
+  const screenOptions = useMemo(
+    () => ({
+      title: t('cardForm.addTitle'),
+      headerStyle: { backgroundColor: Colors.charcoal },
+      headerTintColor: Colors.coral,
+      headerTitleStyle: { fontFamily: 'Outfit_600SemiBold' },
+      headerLeft: () => (
+        <Pressable onPress={handleClose} style={styles.headerButton}>
+          <Ionicons name="close" size={24} color={Colors.foreground} />
+        </Pressable>
+      ),
+      headerRight: () => (
+        <Button
+          title={t('cardForm.save')}
+          size="small"
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+        />
+      ),
+    }),
+    [t, handleClose, handleSubmit, isSubmitting]
+  );
+
+  // Render form view with conditional scanner overlay
   return (
     <View style={styles.container}>
-      <Stack.Screen
-        options={{
-          title: t('cardForm.addTitle'),
-          headerStyle: { backgroundColor: Colors.charcoal },
-          headerTintColor: Colors.coral,
-          headerTitleStyle: { fontFamily: 'Outfit_600SemiBold' },
-          headerLeft: () => (
-            <Pressable onPress={handleClose} style={styles.headerButton}>
-              <Ionicons name="close" size={24} color={Colors.foreground} />
-            </Pressable>
-          ),
-          headerRight: () => (
-            <Button
-              title={t('cardForm.save')}
-              size="small"
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-            />
-          ),
-        }}
-      />
+      <Stack.Screen options={screenOptions} />
+
+      {/* Scanner Modal - rendered when showScanner is true */}
+      <Modal
+        visible={showScanner}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={handleCloseScanner}>
+        <View style={styles.container}>
+          {!permission ? (
+            <View style={styles.scannerFullScreen}>
+              <SafeAreaView style={styles.centerContent} edges={['top']}>
+                <ThemedText type="body" color="muted">
+                  {t('scan.requestingPermission')}
+                </ThemedText>
+              </SafeAreaView>
+            </View>
+          ) : !permission.granted ? (
+            <View style={styles.scannerFullScreen}>
+              <SafeAreaView style={styles.permissionContainer} edges={['top']}>
+                <Pressable style={styles.closeButtonTop} onPress={handleCloseScanner}>
+                  <Ionicons name="close" size={24} color={Colors.foreground} />
+                </Pressable>
+                <View style={styles.permissionContent}>
+                  <View style={styles.permissionIconContainer}>
+                    <Ionicons name="camera-outline" size={64} color={Colors.muted} />
+                  </View>
+                  <ThemedText type="title2" style={styles.permissionTitle}>
+                    {t('scan.permissionTitle')}
+                  </ThemedText>
+                  <ThemedText
+                    type="body"
+                    color="muted"
+                    style={styles.permissionDescription}>
+                    {t('scan.permissionDescription')}
+                  </ThemedText>
+                  <Button
+                    title={t('scan.allowCamera')}
+                    onPress={requestPermission}
+                    style={styles.permissionButton}
+                  />
+                </View>
+              </SafeAreaView>
+            </View>
+          ) : (
+            <>
+              <CameraView
+                style={styles.camera}
+                facing="back"
+                enableTorch={flashOn}
+                barcodeScannerSettings={{
+                  barcodeTypes: [
+                    'qr',
+                    'ean13',
+                    'ean8',
+                    'code128',
+                    'code39',
+                    'upc_a',
+                    'upc_e',
+                    'codabar',
+                    'itf14',
+                    'pdf417',
+                  ],
+                }}
+                onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+              />
+
+              {/* Overlay */}
+              <View style={styles.overlay}>
+                {/* Header */}
+                <SafeAreaView edges={['top']} style={styles.header}>
+                  <View style={styles.headerContent}>
+                    <Pressable style={styles.backButton} onPress={handleCloseScanner}>
+                      <Ionicons name="close" size={24} color={Colors.foreground} />
+                    </Pressable>
+                    <ThemedText type="title2" style={styles.headerTitle}>
+                      {t('scan.title')}
+                    </ThemedText>
+                    <Pressable style={styles.flashButton} onPress={toggleFlash}>
+                      <Ionicons
+                        name={flashOn ? 'flash' : 'flash-outline'}
+                        size={24}
+                        color={flashOn ? Colors.coral : Colors.foreground}
+                      />
+                    </Pressable>
+                  </View>
+                </SafeAreaView>
+
+                {/* Scan Area */}
+                <View style={styles.scanAreaContainer}>
+                  <View style={styles.scanArea}>
+                    {/* Corner brackets */}
+                    <View style={[styles.corner, styles.topLeft]} />
+                    <View style={[styles.corner, styles.topRight]} />
+                    <View style={[styles.corner, styles.bottomLeft]} />
+                    <View style={[styles.corner, styles.bottomRight]} />
+                  </View>
+                  <ThemedText type="callout" color="muted" style={styles.scanHint}>
+                    {t('scan.scanHint')}
+                  </ThemedText>
+                </View>
+              </View>
+
+              {/* Scanned indicator */}
+              {scanned && (
+                <Animated.View
+                  entering={FadeIn}
+                  exiting={FadeOut}
+                  style={styles.scannedOverlay}>
+                  <View style={styles.scannedContent}>
+                    <Ionicons name="checkmark-circle" size={64} color={Colors.coral} />
+                    <ThemedText type="title3" style={styles.scannedText}>
+                      {t('scan.barcodeDetected')}
+                    </ThemedText>
+                  </View>
+                </Animated.View>
+              )}
+            </>
+          )}
+        </View>
+      </Modal>
 
       <KeyboardAvoidingView
         style={styles.keyboardView}
@@ -287,7 +355,8 @@ export default function AddCardScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled">
+          keyboardShouldPersistTaps="handled"
+          pointerEvents={showScanner ? 'none' : 'auto'}>
           {/* Store Name */}
           <Input
             label={t('cardForm.storeName')}
@@ -490,5 +559,155 @@ const styles = StyleSheet.create({
   previewNumber: {
     color: 'rgba(255, 255, 255, 0.8)',
     letterSpacing: 2,
+  },
+  // Scanner styles
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  permissionContainer: {
+    flex: 1,
+  },
+  closeButtonTop: {
+    position: 'absolute',
+    top: Spacing.xl + 44,
+    left: Spacing.md,
+    width: ComponentSize.touchTarget,
+    height: ComponentSize.touchTarget,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  permissionContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.xl,
+  },
+  permissionIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  permissionTitle: {
+    marginBottom: Spacing.xs,
+    textAlign: 'center',
+  },
+  permissionDescription: {
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+  },
+  permissionButton: {
+    minWidth: 200,
+  },
+  camera: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+  },
+  header: {
+    paddingTop: Spacing.sm,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.sm,
+  },
+  backButton: {
+    width: ComponentSize.touchTarget,
+    height: ComponentSize.touchTarget,
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    color: Colors.foreground,
+  },
+  flashButton: {
+    width: ComponentSize.touchTarget,
+    height: ComponentSize.touchTarget,
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scanAreaContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scanArea: {
+    width: 280,
+    height: 180,
+    position: 'relative',
+  },
+  corner: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderColor: Colors.coral,
+  },
+  topLeft: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderTopLeftRadius: BorderRadius.md,
+  },
+  topRight: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+    borderTopRightRadius: BorderRadius.md,
+  },
+  bottomLeft: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+    borderBottomLeftRadius: BorderRadius.md,
+  },
+  bottomRight: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderBottomRightRadius: BorderRadius.md,
+  },
+  scanHint: {
+    marginTop: Spacing.md,
+    textAlign: 'center',
+  },
+  scannedOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(13, 17, 23, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scannedContent: {
+    alignItems: 'center',
+  },
+  scannedText: {
+    marginTop: Spacing.md,
+    color: Colors.foreground,
+  },
+  scannerFullScreen: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.charcoal,
+    zIndex: 1000,
   },
 });
